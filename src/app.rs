@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use tui::widgets::ListState;
+use crossterm::event::KeyCode;
 
 const KEYBOARD_ACTION_DELAY: u64 = 150;
 
@@ -27,77 +27,101 @@ impl<'a> TabsState<'a> {
     }
 }
 
-pub struct StatefulList<T> {
-    pub state: ListState,
-    pub items: Vec<T>,
-}
-
-impl<T> StatefulList<T> {
-    pub fn with_items(items: Vec<T>) -> StatefulList<T> {
-        StatefulList {
-            state: ListState::default(),
-            items,
-        }
-    }
-
-    pub fn next(&mut self) {
-        let i = match self.state.selected() {
-            Some(i) => {
-                if i >= self.items.len() - 1 {
-                    0
-                } else {
-                    i + 1
-                }
-            }
-            None => 0,
-        };
-        self.state.select(Some(i));
-    }
-
-    pub fn previous(&mut self) {
-        let i = match self.state.selected() {
-            Some(i) => {
-                if i == 0 {
-                    self.items.len() - 1
-                } else {
-                    i - 1
-                }
-            }
-            None => 0,
-        };
-        self.state.select(Some(i));
-    }
+pub enum TopMenuItem {
+    Tasks,
+    Timers,
 }
 
 pub struct App<'a> {
     pub title: &'a str,
-    pub enhanced_graphics: bool,
-    pub should_quit: bool,
     pub tabs: TabsState<'a>,
+
+    // TODO: refactor into separate state
+    pub create_new_task_popup_enabled: bool,
+    pub new_task_description: String,
+
+    // Internals
     pub action_delay: Instant,
     pub display_debugger: bool,
+    pub enhanced_graphics: bool,
+    pub should_quit: bool,
+}
+
+pub fn get_menu_item_title(menu_item: TopMenuItem) -> &'static str {
+    match menu_item {
+        TopMenuItem::Tasks => "Tasks",
+        TopMenuItem::Timers => "Timers",
+    }
 }
 
 impl<'a> App<'a> {
-    // Initialize app state
     pub fn new(title: &'a str, enhanced_graphics: bool) -> App<'a> {
         App {
             title,
             should_quit: false,
-            tabs: TabsState::new(vec!["Tasks", "Timers"]),
+            tabs: TabsState::new(vec![
+                get_menu_item_title(TopMenuItem::Tasks),
+                get_menu_item_title(TopMenuItem::Timers),
+            ]),
             enhanced_graphics,
             action_delay: Instant::now(),
             display_debugger: false,
+            create_new_task_popup_enabled: false,
+            new_task_description: String::new(),
         }
     }
 
-    // Soft limit, as keyboard actions are handled too fast and keyboard actions register multiple times
+    // FIXME: Hacky Soft limit, keyboard events are being double read
     fn is_actionable_item_delay_finished(&mut self) -> bool {
         self.action_delay.elapsed() > Duration::from_millis(KEYBOARD_ACTION_DELAY)
     }
 
     fn reset_actionable_item_delay(&mut self) {
         self.action_delay = Instant::now();
+    }
+
+    // TODO: KeyCode handling should be generalized so tabs and windows are actually handling
+    // based on which of them is focused and in which state the app exists at that moment
+    pub fn on_keycode(&mut self, key: KeyCode) {
+        if self.create_new_task_popup_enabled {
+            match key {
+                KeyCode::Char(c) => {
+                    // Double pushing..
+                    self.new_task_description.push(c);
+                }
+                KeyCode::Backspace => {
+                    self.new_task_description.pop();
+                }
+                KeyCode::Esc => {
+                    self.create_new_task_popup_enabled = false;
+                }
+                KeyCode::Enter => {
+                    // TODO: Implement Add to list
+                    // * Rewrite structure on how this is being handled in state (Popup State)
+                    // * Create KeyCode handler for the popup
+                    if self.is_actionable_item_delay_finished() {
+                        self.create_new_task_popup_enabled = false;
+                        self.reset_actionable_item_delay();
+                    }
+                }
+                _ => {}
+            }
+            // Suspend other action execution
+            return;
+        }
+        match key {
+            // Character handling
+            KeyCode::Char(c) => self.on_key(c),
+
+            // Keyboard arrow actions
+            KeyCode::Left => self.on_left(),
+            KeyCode::Up => self.on_up(),
+            KeyCode::Right => self.on_right(),
+            KeyCode::Down => self.on_down(),
+
+            KeyCode::Esc => {}
+            _ => {}
+        }
     }
 
     pub fn on_up(&mut self) {}
@@ -124,10 +148,16 @@ impl<'a> App<'a> {
                 self.should_quit = true;
             }
             'd' => {
-                self.display_debugger = true;
+                if self.is_actionable_item_delay_finished() {
+                    self.display_debugger = !self.display_debugger;
+                    self.reset_actionable_item_delay();
+                }
             }
-            's' => {
-                self.display_debugger = false;
+            'n' => {
+                if self.is_actionable_item_delay_finished() {
+                    self.create_new_task_popup_enabled = !self.create_new_task_popup_enabled;
+                    self.reset_actionable_item_delay();
+                }
             }
             _ => {}
         }

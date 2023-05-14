@@ -1,6 +1,6 @@
 use crate::{app::App, ui};
 use crossterm::{
-    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
+    event::{self, DisableMouseCapture, EnableMouseCapture, Event},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -56,20 +56,9 @@ fn run_app<B: Backend>(
             .unwrap_or_else(|| Duration::from_secs(0));
 
         if crossterm::event::poll(timeout)? {
+            // FIXME: Getting double events from stdin, wtf :D
             if let Event::Key(key) = event::read()? {
-                match key.code {
-                    // Character handling
-                    KeyCode::Char(c) => app.on_key(c),
-
-                    // Keyboard arrow actions
-                    KeyCode::Left => app.on_left(),
-                    KeyCode::Up => app.on_up(),
-                    KeyCode::Right => app.on_right(),
-                    KeyCode::Down => app.on_down(),
-
-                    // Fallback on non Event from crossterm
-                    _ => {}
-                }
+                app.on_keycode(key.code);
             }
         }
 

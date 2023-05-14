@@ -34,6 +34,10 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     };
 
     // Debugging window
+    if app.create_new_task_popup_enabled {
+        draw_debugger(f, chunks[1], app.new_task_description.to_string());
+    }
+
     if app.display_debugger {
         draw_debugger(f, chunks[1], app.tabs.index.to_string());
     }
