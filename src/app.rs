@@ -1,6 +1,7 @@
 use std::time::{Duration, Instant};
 
 use crossterm::event::KeyCode;
+use tui::widgets::ListState;
 
 const KEYBOARD_ACTION_DELAY: u64 = 150;
 
@@ -27,24 +28,72 @@ impl<'a> TabsState<'a> {
     }
 }
 
+pub struct StatefulList<T> {
+    pub state: ListState,
+    pub items: Vec<T>,
+}
+
+impl<T> StatefulList<T> {
+    pub fn with_items(items: Vec<T>) -> StatefulList<T> {
+        StatefulList {
+            state: ListState::default(),
+            items,
+        }
+    }
+
+    pub fn next(&mut self) {
+        let i = match self.state.selected() {
+            Some(i) => {
+                if i >= self.items.len() - 1 {
+                    0
+                } else {
+                    i + 1
+                }
+            }
+            None => 0,
+        };
+        self.state.select(Some(i));
+    }
+
+    pub fn previous(&mut self) {
+        let i = match self.state.selected() {
+            Some(i) => {
+                if i == 0 {
+                    self.items.len() - 1
+                } else {
+                    i - 1
+                }
+            }
+            None => 0,
+        };
+        self.state.select(Some(i));
+    }
+}
+
+pub struct Task {
+    pub title: String,
+    pub description: String,
+    pub is_completed: bool,
+}
+
+pub enum TaskCreateFormInput {
+    Title,
+    Description,
+}
+
+pub struct TaskState {
+    // Menu items
+    pub tasks: StatefulList<Task>,
+
+    // New task creation
+    pub new_task_popup_enabled: bool,
+    pub new_task: Task,
+    pub selected_input: TaskCreateFormInput,
+}
+
 pub enum TopMenuItem {
     Tasks,
     Timers,
-}
-
-pub struct App<'a> {
-    pub title: &'a str,
-    pub tabs: TabsState<'a>,
-
-    // TODO: refactor into separate state
-    pub create_new_task_popup_enabled: bool,
-    pub new_task_description: String,
-
-    // Internals
-    pub action_delay: Instant,
-    pub display_debugger: bool,
-    pub enhanced_graphics: bool,
-    pub should_quit: bool,
 }
 
 pub fn get_menu_item_title(menu_item: TopMenuItem) -> &'static str {
@@ -52,6 +101,19 @@ pub fn get_menu_item_title(menu_item: TopMenuItem) -> &'static str {
         TopMenuItem::Tasks => "Tasks",
         TopMenuItem::Timers => "Timers",
     }
+}
+
+pub struct App<'a> {
+    pub title: &'a str,
+    pub tabs: TabsState<'a>,
+
+    pub task_state: TaskState,
+
+    // Internals
+    pub action_delay: Instant,
+    pub display_debugger: bool,
+    pub enhanced_graphics: bool,
+    pub should_quit: bool,
 }
 
 impl<'a> App<'a> {
@@ -66,50 +128,65 @@ impl<'a> App<'a> {
             enhanced_graphics,
             action_delay: Instant::now(),
             display_debugger: false,
-            create_new_task_popup_enabled: false,
-            new_task_description: String::new(),
+            task_state: TaskState {
+                new_task: Task {
+                    title: String::from(""),
+                    description: String::from(""),
+                    is_completed: false,
+                },
+                new_task_popup_enabled: false,
+                tasks: StatefulList::with_items(vec![]),
+                selected_input: TaskCreateFormInput::Title,
+            },
         }
-    }
-
-    // FIXME: Hacky Soft limit, keyboard events are being double read
-    fn is_actionable_item_delay_finished(&mut self) -> bool {
-        self.action_delay.elapsed() > Duration::from_millis(KEYBOARD_ACTION_DELAY)
-    }
-
-    fn reset_actionable_item_delay(&mut self) {
-        self.action_delay = Instant::now();
     }
 
     // TODO: KeyCode handling should be generalized so tabs and windows are actually handling
     // based on which of them is focused and in which state the app exists at that moment
     pub fn on_keycode(&mut self, key: KeyCode) {
-        if self.create_new_task_popup_enabled {
-            match key {
-                KeyCode::Char(c) => {
-                    // Double pushing..
-                    self.new_task_description.push(c);
-                }
-                KeyCode::Backspace => {
-                    self.new_task_description.pop();
-                }
+        if self.task_state.new_task_popup_enabled {
+            return match key {
+                KeyCode::Char(c) => match self.task_state.selected_input {
+                    TaskCreateFormInput::Title => {
+                        self.task_state.new_task.title.push(c);
+                    }
+                    TaskCreateFormInput::Description => {
+                        self.task_state.new_task.description.push(c);
+                    }
+                },
+                KeyCode::Backspace => match self.task_state.selected_input {
+                    TaskCreateFormInput::Title => {
+                        self.task_state.new_task.title.pop();
+                    }
+                    TaskCreateFormInput::Description => {
+                        self.task_state.new_task.description.pop();
+                    }
+                },
+                KeyCode::Tab | KeyCode::BackTab => match self.task_state.selected_input {
+                    TaskCreateFormInput::Title => {
+                        self.task_state.selected_input = TaskCreateFormInput::Description
+                    }
+                    TaskCreateFormInput::Description => {
+                        self.task_state.selected_input = TaskCreateFormInput::Title
+                    }
+                },
                 KeyCode::Esc => {
-                    self.create_new_task_popup_enabled = false;
+                    self.task_state.new_task_popup_enabled = false;
                 }
                 KeyCode::Enter => {
-                    // TODO: Implement Add to list
-                    // * Rewrite structure on how this is being handled in state (Popup State)
-                    // * Create KeyCode handler for the popup
-                    if self.is_actionable_item_delay_finished() {
-                        self.create_new_task_popup_enabled = false;
-                        self.reset_actionable_item_delay();
-                    }
+                    let new_task = Task {
+                        title: self.task_state.new_task.title.to_owned(),
+                        description: self.task_state.new_task.description.to_owned(),
+                        is_completed: false,
+                    };
+                    self.task_state.tasks.items.push(new_task);
+                    self.task_state.new_task_popup_enabled = false;
                 }
                 _ => {}
-            }
+            };
             // Suspend other action execution
-            return;
         }
-        match key {
+        return match key {
             // Character handling
             KeyCode::Char(c) => self.on_key(c),
 
@@ -121,25 +198,24 @@ impl<'a> App<'a> {
 
             KeyCode::Esc => {}
             _ => {}
-        }
+        };
     }
 
-    pub fn on_up(&mut self) {}
+    // TODO: Create Selected window based navigation controls
+    pub fn on_up(&mut self) {
+        self.task_state.tasks.next();
+    }
 
-    pub fn on_down(&mut self) {}
+    pub fn on_down(&mut self) {
+        self.task_state.tasks.previous();
+    }
 
     pub fn on_right(&mut self) {
-        if self.is_actionable_item_delay_finished() {
-            self.tabs.next();
-            self.reset_actionable_item_delay();
-        }
+        self.tabs.next();
     }
 
     pub fn on_left(&mut self) {
-        if self.is_actionable_item_delay_finished() {
-            self.tabs.previous();
-            self.reset_actionable_item_delay();
-        }
+        self.tabs.previous();
     }
 
     pub fn on_key(&mut self, c: char) {
@@ -148,16 +224,15 @@ impl<'a> App<'a> {
                 self.should_quit = true;
             }
             'd' => {
-                if self.is_actionable_item_delay_finished() {
-                    self.display_debugger = !self.display_debugger;
-                    self.reset_actionable_item_delay();
-                }
+                self.display_debugger = !self.display_debugger;
             }
             'n' => {
-                if self.is_actionable_item_delay_finished() {
-                    self.create_new_task_popup_enabled = !self.create_new_task_popup_enabled;
-                    self.reset_actionable_item_delay();
-                }
+                self.task_state.new_task_popup_enabled = true;
+                self.task_state.new_task = Task {
+                    title: String::from(""),
+                    description: String::from(""),
+                    is_completed: false,
+                };
             }
             _ => {}
         }

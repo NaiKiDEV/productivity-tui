@@ -56,7 +56,6 @@ fn run_app<B: Backend>(
             .unwrap_or_else(|| Duration::from_secs(0));
 
         if crossterm::event::poll(timeout)? {
-            // FIXME: Getting double events from stdin, wtf :D
             if let Event::Key(key) = event::read()? {
                 app.on_keycode(key.code);
             }
