@@ -1,9 +1,7 @@
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use crossterm::event::KeyCode;
 use tui::widgets::ListState;
-
-const KEYBOARD_ACTION_DELAY: u64 = 150;
 
 pub struct TabsState<'a> {
     pub titles: Vec<&'a str>,
@@ -81,6 +79,8 @@ pub enum TaskCreateFormInput {
     Description,
 }
 
+// TODO: Add TaskState implementation methods for:
+//  on_keycode, open_create_popup, close_create_popup, create_new_task
 pub struct TaskState {
     // Menu items
     pub tasks: StatefulList<Task>,
@@ -184,7 +184,6 @@ impl<'a> App<'a> {
                 }
                 _ => {}
             };
-            // Suspend other action execution
         }
         return match key {
             // Character handling
@@ -233,6 +232,7 @@ impl<'a> App<'a> {
                     description: String::from(""),
                     is_completed: false,
                 };
+                self.task_state.selected_input = TaskCreateFormInput::Title;
             }
             _ => {}
         }
