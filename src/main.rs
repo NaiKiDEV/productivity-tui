@@ -1,5 +1,7 @@
 mod app;
 mod crossterm;
+mod features;
+mod structures;
 mod ui;
 
 use crate::crossterm::run;

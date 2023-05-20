@@ -1,4 +1,4 @@
-use crate::app::{App, TaskCreateFormInput};
+use crate::app::App;
 use tui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
@@ -9,19 +9,24 @@ use tui::{
 };
 use unicode_width::UnicodeWidthStr;
 
+// TODO: Code up input field component which would handle offscreen and other issues?
+
 pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
+    // Reset cursor to allow other functions to replace position if needed
+    f.set_cursor(u16::MAX - 1, u16::MAX - 1);
+
     let chunks = Layout::default()
         .constraints([Constraint::Length(3), Constraint::Min(0)].as_ref())
         .split(f.size());
 
-    let titles = app
+    let tab_titles = app
         .tabs
         .titles
         .iter()
         .map(|t| Spans::from(Span::styled(*t, Style::default().fg(Color::Gray))))
         .collect();
 
-    let tabs = Tabs::new(titles)
+    let tabs = Tabs::new(tab_titles)
         .block(
             Block::default()
                 .border_type(BorderType::Rounded)
@@ -42,75 +47,41 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     if app.task_state.new_task_popup_enabled {
         draw_new_task_popup(f, app, chunks[1]);
     }
-
-    // Debugging window
-    if app.display_debugger {
-        draw_debugger(f, chunks[1], app.tabs.index.to_string());
-    }
 }
 
 fn draw_new_task_popup<B>(f: &mut Frame<B>, app: &mut App, area: Rect)
 where
     B: Backend,
 {
-    let popup_chunk = centered_rect(50, 20, area);
+    let popup_chunk = centered_rect(60, 3, area);
 
     let block = Block::default()
         .title("New Task")
         .borders(Borders::ALL)
-        .border_type(BorderType::Thick);
+        .border_type(BorderType::Plain);
 
-    let inner_content = Layout::default()
-        .direction(Direction::Vertical)
-        .margin(2)
-        .constraints([Constraint::Length(3), Constraint::Length(3)])
-        .split(popup_chunk);
-
-    let title_input = Paragraph::new(String::from(app.task_state.new_task.title.to_owned()))
-        .style(match app.task_state.selected_input {
-            TaskCreateFormInput::Title => Style::default().fg(Color::Yellow),
-            TaskCreateFormInput::Description => Style::default(),
-        })
-        .block(Block::default().borders(Borders::BOTTOM).title("Title"));
-
-    let subtitle_input =
-        Paragraph::new(String::from(app.task_state.new_task.description.to_owned()))
-            .style(match app.task_state.selected_input {
-                TaskCreateFormInput::Title => Style::default(),
-                TaskCreateFormInput::Description => Style::default().fg(Color::Yellow),
-            })
-            .block(
-                Block::default()
-                    .borders(Borders::BOTTOM)
-                    .title("Description"),
-            );
+    let title_input = Paragraph::new(app.task_state.new_task.title.to_owned()).block(block);
 
     f.render_widget(Clear, popup_chunk);
-    f.render_widget(block, popup_chunk);
+    f.render_widget(title_input, popup_chunk);
 
-    f.render_widget(title_input, inner_content[0]);
-    f.render_widget(subtitle_input, inner_content[1]);
-
-    match app.task_state.selected_input {
-        TaskCreateFormInput::Title => f.set_cursor(
-            inner_content[0].x + app.task_state.new_task.title.width() as u16,
-            inner_content[0].y + 1,
-        ),
-        TaskCreateFormInput::Description => f.set_cursor(
-            inner_content[1].x + app.task_state.new_task.description.width() as u16,
-            inner_content[1].y + 1,
-        ),
-    }
+    f.set_cursor(
+        popup_chunk.x + app.task_state.new_task.title.width() as u16 + 1,
+        popup_chunk.y + 1,
+    );
 }
 
-fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
+fn centered_rect(percent_x: u16, height: u16, r: Rect) -> Rect {
+    // TODO: Might have some edge cases with specific viewports
+    let empty_space = ((r.height - height) * 100) / r.height / 2;
+
     let popup_layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints(
             [
-                Constraint::Percentage((100 - percent_y) / 2),
-                Constraint::Percentage(percent_y),
-                Constraint::Percentage((100 - percent_y) / 2),
+                Constraint::Percentage(empty_space),
+                Constraint::Percentage(100 - empty_space * 2),
+                Constraint::Percentage(empty_space),
             ]
             .as_ref(),
         )
@@ -127,27 +98,6 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
             .as_ref(),
         )
         .split(popup_layout[1])[1]
-}
-
-fn draw_debugger<B>(f: &mut Frame<B>, area: Rect, debug_info: String)
-where
-    B: Backend,
-{
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Min(1), Constraint::Max(4)])
-        .split(area);
-
-    let text = vec![
-        Spans::from(vec![Span::raw("Printed info:")]),
-        Spans::from(vec![Span::raw(debug_info)]),
-    ];
-    let para = Paragraph::new(text)
-        .block(Block::default().title("Debug info").borders(Borders::ALL))
-        .style(Style::default().fg(Color::White).bg(Color::Black))
-        .wrap(Wrap { trim: true });
-
-    f.render_widget(para, chunks[1]);
 }
 
 fn draw_task_tab<B>(f: &mut Frame<B>, app: &mut App, area: Rect)
@@ -189,13 +139,6 @@ where
                 )),
                 Spans::from(Span::raw("")),
                 Spans::from(Span::raw(&task.title)),
-                Spans::from(Span::raw("")),
-                Spans::from(Span::styled(
-                    "Description:",
-                    Style::default().add_modifier(Modifier::BOLD),
-                )),
-                Spans::from(Span::raw("")),
-                Spans::from(Span::raw(&task.description)),
                 Spans::from(Span::raw("")),
                 Spans::from(Span::styled(
                     "Is finished?",
