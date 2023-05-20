@@ -30,7 +30,6 @@ pub struct TaskState {
     pub new_task: Task,
 
     pub new_task_popup_enabled: bool,
-    pub disable_app_interactions: bool,
 }
 
 impl TaskState {
@@ -40,19 +39,16 @@ impl TaskState {
 
             new_task: Task::default(),
 
-            disable_app_interactions: false,
             new_task_popup_enabled: false,
         }
     }
 
     fn open_create_popup(&mut self) {
         self.new_task_popup_enabled = true;
-        self.disable_app_interactions = true;
     }
 
     fn close_create_popup(&mut self) {
         self.new_task_popup_enabled = false;
-        self.disable_app_interactions = false;
     }
 
     fn create_new_task(&mut self) {
