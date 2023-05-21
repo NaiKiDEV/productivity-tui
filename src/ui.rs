@@ -128,7 +128,7 @@ where
 {
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(60), Constraint::Percentage(40)].as_ref())
+        .constraints([Constraint::Percentage(100)].as_ref())
         .split(area);
 
     let task_list_block = Block::default().borders(Borders::ALL).title("Task List");
@@ -141,8 +141,8 @@ where
         .map(|task| {
             ListItem::new(vec![Spans::from(vec![
                 Span::raw(if task.is_completed { "[*]" } else { "[ ]" }),
-                Span::raw(" "),
-                Span::raw(&task.title),
+                Span::raw(" - "),
+                Span::raw(format!("\"{}\"", &task.title)),
             ])])
             .style(Style::default().fg(if task.is_completed {
                 Color::Green
@@ -151,54 +151,6 @@ where
             }))
         })
         .collect();
-
-    let current_selection = app.task_state.tasks.state.selected().unwrap_or(0);
-    let current_selected_task = if app.task_state.tasks.items.len() > 0 {
-        Some(&app.task_state.tasks.items[current_selection])
-    } else {
-        None
-    };
-
-    let info_paragraph: Paragraph;
-    match current_selected_task {
-        Some(task) => {
-            let information_block = vec![
-                Spans::from(Span::styled(
-                    "Title:",
-                    Style::default().add_modifier(Modifier::BOLD),
-                )),
-                Spans::from(Span::raw("")),
-                Spans::from(Span::raw(&task.title)),
-                Spans::from(Span::raw("")),
-                Spans::from(Span::styled(
-                    "Is finished?",
-                    Style::default().add_modifier(Modifier::BOLD),
-                )),
-                Spans::from(Span::raw("")),
-                Spans::from(Span::raw(if task.is_completed { "Yes." } else { "No." })),
-            ];
-            info_paragraph = Paragraph::new(information_block).wrap(Wrap { trim: false });
-        }
-        None => {
-            let information_block = vec![Spans::from(Span::styled(
-                "Select task to display information...",
-                Style::default().fg(Color::Yellow),
-            ))];
-            info_paragraph = Paragraph::new(information_block).wrap(Wrap { trim: false });
-        }
-    }
-
-    let wrapper = Block::default()
-        .borders(Borders::ALL)
-        .title("Task Information");
-
-    let parent_chunk = Layout::default()
-        .margin(1)
-        .constraints([Constraint::Percentage(100)].as_ref())
-        .split(chunks[1]);
-
-    f.render_widget(wrapper, chunks[1]);
-    f.render_widget(info_paragraph, parent_chunk[0]);
 
     if tasks.len() == 0 {
         let empty_information = Paragraph::new(Span::styled(
@@ -247,7 +199,7 @@ where
             let lines = vec![
                 Spans::from(vec![
                     Span::styled("Title: ", Style::default().add_modifier(Modifier::BOLD)),
-                    Span::raw(&timer.title),
+                    Span::raw(format!("\"{}\"", &timer.title)),
                 ]),
                 Spans::from(vec![
                     Span::styled(" - Status: ", Style::default().add_modifier(Modifier::BOLD)),
