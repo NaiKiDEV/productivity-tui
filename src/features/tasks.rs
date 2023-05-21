@@ -32,6 +32,7 @@ pub struct TaskState {
     pub new_task_popup_enabled: bool,
 }
 
+// TODO: add editing for TASKS
 impl TaskState {
     pub fn new() -> Self {
         Self {
@@ -41,6 +42,10 @@ impl TaskState {
 
             new_task_popup_enabled: false,
         }
+    }
+
+    fn delete_selected_task(&mut self) {
+        self.tasks.delete_current();
     }
 
     fn open_create_popup(&mut self) {
@@ -80,6 +85,9 @@ impl TaskState {
             }
 
             KeyCode::Char(c) => match c {
+                'd' => {
+                    self.delete_selected_task();
+                }
                 'n' => {
                     self.open_create_popup();
                     self.new_task = Task::default();

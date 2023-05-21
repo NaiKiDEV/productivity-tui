@@ -114,13 +114,27 @@ where
         .tasks
         .items
         .iter()
-        .map(|task| ListItem::new(vec![Spans::from(Span::raw(&task.title))]))
+        .map(|task| {
+            ListItem::new(vec![Spans::from(vec![
+                Span::raw(if task.is_completed { "[*]" } else { "[ ]" }),
+                Span::raw(" "),
+                Span::raw(&task.title),
+            ])])
+            .style(Style::default().fg(if task.is_completed {
+                Color::Green
+            } else {
+                Color::Red
+            }))
+        })
         .collect();
 
     let tasks = List::new(tasks)
         .block(Block::default().borders(Borders::ALL).title("Task List"))
-        .highlight_style(Style::default().add_modifier(Modifier::BOLD))
-        .highlight_symbol("-> ");
+        .highlight_style(
+            Style::default()
+                .bg(Color::Rgb(50, 50, 50))
+                .add_modifier(Modifier::BOLD),
+        );
 
     let current_selection = app.task_state.tasks.state.selected().unwrap_or(0);
     let current_selected_task = if app.task_state.tasks.items.len() > 0 {
@@ -146,7 +160,6 @@ where
                 )),
                 Spans::from(Span::raw("")),
                 Spans::from(Span::raw(if task.is_completed { "Yes." } else { "No." })),
-                Spans::from(Span::raw("")),
             ];
             info_paragraph = Paragraph::new(information_block).wrap(Wrap { trim: false });
         }
