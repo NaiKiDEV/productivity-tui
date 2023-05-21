@@ -1,6 +1,6 @@
 use crossterm::event::KeyCode;
 
-use crate::features::tasks::TaskState;
+use crate::features::{tasks::TaskState, timers::TimerState};
 
 pub struct TabsState<'a> {
     pub titles: Vec<&'a str>,
@@ -44,6 +44,7 @@ pub struct App<'a> {
 
     // Feature state definitions
     pub task_state: TaskState,
+    pub timer_state: TimerState,
 
     pub should_quit: bool,
 
@@ -65,6 +66,7 @@ impl<'a> App<'a> {
             ]),
 
             task_state: TaskState::new(),
+            timer_state: TimerState::new(),
 
             enhanced_graphics,
             display_debugger: false,
@@ -80,10 +82,21 @@ impl<'a> App<'a> {
             // Return when keyboard action is non-app interactive
             return;
         }
+        // Tab index == 0 is Timers
+        if self.tabs.index == 1 && self.timer_state.on_keycode(key) {
+            // Return when keyboard action is non-app interactive
+            return;
+        }
 
         return match key {
             // Character handling
             KeyCode::Char(c) => match c {
+                '1' => {
+                    self.tabs.index = 0;
+                }
+                '2' => {
+                    self.tabs.index = 1;
+                }
                 'q' => {
                     self.should_quit = true;
                 }
@@ -108,6 +121,6 @@ impl<'a> App<'a> {
     }
 
     pub fn on_tick(&mut self) {
-        // Do some tick based logic
+        self.timer_state.on_tick();
     }
 }

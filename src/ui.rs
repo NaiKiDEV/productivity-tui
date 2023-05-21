@@ -47,6 +47,9 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     if app.task_state.new_task_popup_enabled {
         draw_new_task_popup(f, app, chunks[1]);
     }
+    if app.timer_state.new_timer_popup_enabled {
+        draw_new_timer_popup(f, app, chunks[1]);
+    }
 }
 
 fn draw_new_task_popup<B>(f: &mut Frame<B>, app: &mut App, area: Rect)
@@ -67,6 +70,28 @@ where
 
     f.set_cursor(
         popup_chunk.x + app.task_state.new_task.title.width() as u16 + 1,
+        popup_chunk.y + 1,
+    );
+}
+
+fn draw_new_timer_popup<B>(f: &mut Frame<B>, app: &mut App, area: Rect)
+where
+    B: Backend,
+{
+    let popup_chunk = centered_rect(60, 3, area);
+
+    let block = Block::default()
+        .title("New Timer")
+        .borders(Borders::ALL)
+        .border_type(BorderType::Plain);
+
+    let title_input = Paragraph::new(app.timer_state.new_timer.title.to_owned()).block(block);
+
+    f.render_widget(Clear, popup_chunk);
+    f.render_widget(title_input, popup_chunk);
+
+    f.set_cursor(
+        popup_chunk.x + app.timer_state.new_timer.title.width() as u16 + 1,
         popup_chunk.y + 1,
     );
 }
@@ -109,6 +134,8 @@ where
         .constraints([Constraint::Percentage(60), Constraint::Percentage(40)].as_ref())
         .split(area);
 
+    let task_list_block = Block::default().borders(Borders::ALL).title("Task List");
+
     let tasks: Vec<ListItem> = app
         .task_state
         .tasks
@@ -127,14 +154,6 @@ where
             }))
         })
         .collect();
-
-    let tasks = List::new(tasks)
-        .block(Block::default().borders(Borders::ALL).title("Task List"))
-        .highlight_style(
-            Style::default()
-                .bg(Color::Rgb(50, 50, 50))
-                .add_modifier(Modifier::BOLD),
-        );
 
     let current_selection = app.task_state.tasks.state.selected().unwrap_or(0);
     let current_selected_task = if app.task_state.tasks.items.len() > 0 {
@@ -177,30 +196,113 @@ where
         .title("Task Information");
 
     let parent_chunk = Layout::default()
-        .margin(2)
+        .margin(1)
         .constraints([Constraint::Percentage(100)].as_ref())
         .split(chunks[1]);
 
     f.render_widget(wrapper, chunks[1]);
     f.render_widget(info_paragraph, parent_chunk[0]);
 
-    f.render_stateful_widget(tasks, chunks[0], &mut app.task_state.tasks.state);
+    if tasks.len() == 0 {
+        let empty_information = Paragraph::new(Span::styled(
+            "You don't have any tasks! Create one using ('n' key).",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::ITALIC),
+        ))
+        .block(task_list_block);
+
+        f.render_widget(empty_information, chunks[0]);
+    } else {
+        let tasks = List::new(tasks).block(task_list_block).highlight_style(
+            Style::default()
+                .bg(Color::Rgb(50, 50, 50))
+                .add_modifier(Modifier::BOLD),
+        );
+
+        f.render_stateful_widget(tasks, chunks[0], &mut app.task_state.tasks.state);
+    }
 }
 
-fn draw_timers_tab<B>(f: &mut Frame<B>, _app: &mut App, area: Rect)
+fn draw_timers_tab<B>(f: &mut Frame<B>, app: &mut App, area: Rect)
 where
     B: Backend,
 {
-    let block = Block::default().borders(Borders::ALL).title(Span::styled(
-        "Active Timers",
-        Style::default()
-            .fg(Color::Green)
-            .add_modifier(Modifier::BOLD),
-    ));
+    let chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(100)].as_ref())
+        .split(area);
 
-    let text = vec![Spans::from("Implement timers...")];
+    let timers: Vec<ListItem> = app
+        .timer_state
+        .timers
+        .items
+        .iter()
+        .map(|timer| {
+            let timer_seconds = timer.time_active.as_secs();
+            let formatted_timer_information = format!(
+                "{:02}:{:02}:{:02}",
+                timer_seconds / 3600,
+                timer_seconds / 60,
+                timer_seconds % 60
+            );
 
-    let paragraph = Paragraph::new(text).block(block).wrap(Wrap { trim: true });
+            let lines = vec![
+                Spans::from(vec![
+                    Span::styled("Title: ", Style::default().add_modifier(Modifier::BOLD)),
+                    Span::raw(&timer.title),
+                ]),
+                Spans::from(vec![
+                    Span::styled(" - Status: ", Style::default().add_modifier(Modifier::BOLD)),
+                    Span::raw(if timer.is_active {
+                        "[Active]"
+                    } else {
+                        "[Inactive]"
+                    }),
+                ]),
+                Spans::from(vec![
+                    Span::styled(
+                        " - Active Duration: ",
+                        Style::default().add_modifier(Modifier::BOLD),
+                    ),
+                    Span::raw(formatted_timer_information),
+                ]),
+                Spans::from(vec![
+                    Span::styled(
+                        " - Creation Date: ",
+                        Style::default().add_modifier(Modifier::BOLD),
+                    ),
+                    Span::raw(timer.time_created.to_string()),
+                ]),
+            ];
 
-    f.render_widget(paragraph, area);
+            ListItem::new(lines).style(Style::default().fg(if timer.is_active {
+                Color::Green
+            } else {
+                Color::Red
+            }))
+        })
+        .collect();
+
+    let timer_list_block = Block::default()
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .title("Timer List");
+    if timers.len() == 0 {
+        let empty_information = Paragraph::new(Span::styled(
+            "You don't have any timers! Create one using ('n' key).",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::ITALIC),
+        ))
+        .block(timer_list_block);
+
+        f.render_widget(empty_information, area);
+    } else {
+        let timers = List::new(timers)
+            .block(timer_list_block)
+            .highlight_style(Style::default().bg(Color::Rgb(50, 50, 50)));
+
+        f.render_stateful_widget(timers, chunks[0], &mut app.timer_state.timers.state);
+    }
 }
