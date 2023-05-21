@@ -12,9 +12,6 @@ use unicode_width::UnicodeWidthStr;
 // TODO: Code up input field component which would handle offscreen and other issues?
 
 pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
-    // Reset cursor to allow other functions to replace position if needed
-    f.set_cursor(u16::MAX - 1, u16::MAX - 1);
-
     let chunks = Layout::default()
         .constraints([Constraint::Length(3), Constraint::Min(0)].as_ref())
         .split(f.size());
@@ -240,7 +237,7 @@ where
         .iter()
         .map(|timer| {
             let timer_seconds = timer.time_active.as_secs();
-            let formatted_timer_information = format!(
+            let formatted_active_time_information = format!(
                 "{:02}:{:02}:{:02}",
                 timer_seconds / 3600,
                 timer_seconds / 60,
@@ -265,7 +262,7 @@ where
                         " - Active Duration: ",
                         Style::default().add_modifier(Modifier::BOLD),
                     ),
-                    Span::raw(formatted_timer_information),
+                    Span::raw(formatted_active_time_information),
                 ]),
                 Spans::from(vec![
                     Span::styled(
@@ -288,6 +285,7 @@ where
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
         .title("Timer List");
+
     if timers.len() == 0 {
         let empty_information = Paragraph::new(Span::styled(
             "You don't have any timers! Create one using ('n' key).",
@@ -297,7 +295,7 @@ where
         ))
         .block(timer_list_block);
 
-        f.render_widget(empty_information, area);
+        f.render_widget(empty_information, chunks[0]);
     } else {
         let timers = List::new(timers)
             .block(timer_list_block)

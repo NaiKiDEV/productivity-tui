@@ -75,21 +75,16 @@ impl<'a> App<'a> {
 
     // TODO: Implement tab focusing or active state selection
     pub fn on_keycode(&mut self, key: KeyCode) {
-        // TODO: Improve this logic?
-
         // Tab index == 0 is TaskList
         if self.tabs.index == 0 && self.task_state.on_keycode(key) {
-            // Return when keyboard action is non-app interactive
             return;
         }
-        // Tab index == 0 is Timers
+        // Tab index == 1 is Timers
         if self.tabs.index == 1 && self.timer_state.on_keycode(key) {
-            // Return when keyboard action is non-app interactive
             return;
         }
 
         return match key {
-            // Character handling
             KeyCode::Char(c) => match c {
                 '1' => {
                     self.tabs.index = 0;
@@ -103,7 +98,6 @@ impl<'a> App<'a> {
                 _ => {}
             },
 
-            // Keyboard arrow actions
             KeyCode::Left => self.on_left(),
             KeyCode::Right => self.on_right(),
 
