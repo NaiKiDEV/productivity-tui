@@ -4,7 +4,7 @@ use tui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Span, Spans},
-    widgets::{Block, BorderType, Borders, Clear, List, ListItem, Paragraph, Tabs, Wrap},
+    widgets::{Block, BorderType, Borders, Clear, List, ListItem, Paragraph, Tabs},
     Frame,
 };
 use unicode_width::UnicodeWidthStr;
@@ -152,7 +152,7 @@ where
         })
         .collect();
 
-    if tasks.len() == 0 {
+    if tasks.is_empty() {
         let empty_information = Paragraph::new(Span::styled(
             "You don't have any tasks! Create one using ('n' key).",
             Style::default()
@@ -238,7 +238,7 @@ where
         .border_type(BorderType::Rounded)
         .title("Timer List");
 
-    if timers.len() == 0 {
+    if timers.is_empty() {
         let empty_information = Paragraph::new(Span::styled(
             "You don't have any timers! Create one using ('n' key).",
             Style::default()

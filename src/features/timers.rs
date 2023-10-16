@@ -86,12 +86,9 @@ impl TimerState {
 
             KeyCode::Enter => {
                 let current_selection = self.timers.state.selected();
-                match current_selection {
-                    Some(selection) => {
-                        self.timers.items[selection].is_active =
-                            !self.timers.items[selection].is_active;
-                    }
-                    None => {}
+                if let Some(selection) = current_selection {
+                    self.timers.items[selection].is_active =
+                        !self.timers.items[selection].is_active;
                 }
             }
 

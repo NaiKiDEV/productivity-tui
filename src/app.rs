@@ -84,7 +84,7 @@ impl<'a> App<'a> {
             return;
         }
 
-        return match key {
+        match key {
             KeyCode::Char(c) => match c {
                 '1' => {
                     self.tabs.index = 0;

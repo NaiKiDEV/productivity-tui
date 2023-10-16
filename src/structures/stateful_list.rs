@@ -30,9 +30,9 @@ impl<T> StatefulList<T> {
     pub fn previous(&mut self) {
         let i = match self.state.selected() {
             Some(i) => {
-                if self.items.len() == 0 {
+                if self.items.is_empty() {
                     0
-                } else if i == 0 && self.items.len() > 0 {
+                } else if i == 0 && !self.items.is_empty() {
                     self.items.len() - 1
                 } else {
                     i - 1
@@ -44,18 +44,15 @@ impl<T> StatefulList<T> {
     }
 
     pub fn delete_current(&mut self) {
-        match self.state.selected() {
-            Some(idx) => {
-                if idx + 1 <= self.items.len() {
-                    self.items.remove(idx);
-                    if idx == 0 {
-                        self.state.select(Some(0));
-                    } else {
-                        self.previous();
-                    }
+        if let Some(idx) = self.state.selected() {
+            if idx < self.items.len() {
+                self.items.remove(idx);
+                if idx == 0 {
+                    self.state.select(Some(0));
+                } else {
+                    self.previous();
                 }
             }
-            None => {}
         };
     }
 }

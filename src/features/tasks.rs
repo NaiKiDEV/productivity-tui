@@ -75,12 +75,9 @@ impl TaskState {
 
             KeyCode::Enter => {
                 let current_selection = self.tasks.state.selected();
-                match current_selection {
-                    Some(selection) => {
-                        self.tasks.items[selection].is_completed =
-                            !self.tasks.items[selection].is_completed;
-                    }
-                    None => {}
+                if let Some(selection) = current_selection {
+                    self.tasks.items[selection].is_completed =
+                        !self.tasks.items[selection].is_completed;
                 }
             }
 
